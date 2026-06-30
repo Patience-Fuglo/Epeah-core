@@ -14,7 +14,7 @@ This repository operates under a mandate of strict engineering honesty. No fabri
 | **Graduated Action Matrix (PASS / BLOCK / ESCALATE)** | Shipped | Three-outcome decision schema based on exact value severity margins — replaces binary allow/deny |
 | **0–100 Confidence Scorer** | Shipped | Per-decision risk confidence derived from rule severity weights |
 | **Human-In-The-Loop Layer** | Shipped | Dashboard holds borderline trades pending manual review — logs reviewer identity, credentials (e.g., CQF), written reason, and nanosecond timestamp |
-| **Tamper-Evident Ledger** | Shipped | SHA-256 Merkle-linked chain anchoring all engine decisions and human resolutions — cryptographically verifiable |
+| **Tamper-Evident Ledger** | Shipped | SHA-256 hash-linked chain anchoring all engine decisions and human resolutions — each block's hash includes the previous block's hash, so altering any past record breaks the chain |
 | **Alpaca Broker Kill-Switch** | Shipped (mock) | Code path calls `DELETE /v2/positions/{ticker}` — prints to console, ready for a live API key |
 
 ---
@@ -68,6 +68,24 @@ go test -bench=. -benchmem
 # Tamper-detection: watch the chain break when data is altered
 go test -v -run=TestCryptographicTamperDetection
 ```
+
+The benchmark output looks like:
+
+```
+BenchmarkEngineRiskEvaluation-8          XXXXXX    XXX ns/op    YYY B/op    Z allocs/op
+BenchmarkEngineRiskEvaluationParallel-8  XXXXXX    XXX ns/op    YYY B/op    Z allocs/op
+```
+
+**How to read and quote this number honestly:**
+
+> "On a [your machine, e.g. M2 MacBook Air], the Go rule-evaluation handler benchmarks at ~X µs per request in-process (`go test -bench=.`). That's the rule-check time; it does not include network or broker round-trip."
+
+The key qualifiers:
+- **"in-process"** — measured with `httptest`, not over a real network socket
+- **"rule-check time, not network/broker"** — pre-empts the first question a quant engineer will ask
+- **name the machine** — a benchmark without hardware context is meaningless
+
+Clone the repo and run `go test -bench=. -benchmem` to reproduce the number on your own hardware.
 
 Expected tamper test output:
 ```
