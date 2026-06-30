@@ -1,19 +1,19 @@
 package main
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
 )
 
 // ==========================================
-// DATA STRUCTURES
+// DATA STRUCTURES & PROTOCOL TAXONOMY
 // ==========================================
 
 type TradePayload struct {
@@ -46,7 +46,7 @@ type HumanResolution struct {
 	DecisionID string `json:"decision_id"`
 	Action     string `json:"action"` // "ALLOW", "REJECT"
 	Reviewer   string `json:"reviewer"`
-	Credential string `json:"credential"`
+	Credential string `json:"credential"` // e.g., "CQF"
 	Reason     string `json:"reason"`
 	Timestamp  int64  `json:"timestamp"`
 	PrevHash   string `json:"prev_hash"`
@@ -54,7 +54,7 @@ type HumanResolution struct {
 }
 
 // ==========================================
-// STATE
+// STATE ARCHITECTURE & LOGGING LEDGERS
 // ==========================================
 
 var (
@@ -71,7 +71,7 @@ const MaxPositionValue = 50000.0
 var BannedAssets = map[string]bool{"GHOST": true, "TEST": true}
 
 // ==========================================
-// EVALUATION ENGINE
+// GRADUATED DECISION MATRIX
 // ==========================================
 
 func evaluatePayload(payload TradePayload) *EngineDecision {
@@ -84,21 +84,21 @@ func evaluatePayload(payload TradePayload) *EngineDecision {
 		Timestamp:       time.Now().UnixNano(),
 	}
 
-	// Rule 1: Banned Asset Check (Hard)
+	// Rule 1: Banned Registry
 	bannedRule := RuleResult{
 		RuleName: "BannedAssetCheck",
 		Severity: "OK",
-		Reason:   "Asset is cleared for transaction routing.",
+		Reason:   "Asset is cleared for transaction tracking.",
 	}
 	if BannedAssets[strings.ToUpper(payload.Ticker)] {
 		bannedRule.Triggered = true
 		bannedRule.Severity = "HARD"
-		bannedRule.Reason = fmt.Sprintf("Asset %s is explicitly restricted.", payload.Ticker)
+		bannedRule.Reason = fmt.Sprintf("Asset %s is explicitly restricted from autonomous deployment.", payload.Ticker)
 		decision.ConfidenceScore -= 50
 	}
 	decision.RuleDetails = append(decision.RuleDetails, bannedRule)
 
-	// Rule 2: Graduated Position Size
+	// Rule 2: Position Allocation Sizing
 	calculatedValue := payload.Quantity * payload.Price
 	if payload.TotalValue > 0 {
 		calculatedValue = payload.TotalValue
@@ -113,7 +113,7 @@ func evaluatePayload(payload TradePayload) *EngineDecision {
 		sizeRule.Triggered = true
 		sizeRule.Severity = "HARD"
 		sizeRule.Reason = fmt.Sprintf(
-			"Trade value of $%.2f exceeds the $%.2f hard threshold.",
+			"Trade value of $%.2f exceeds the $%.2f hard boundary cap.",
 			calculatedValue, MaxPositionValue,
 		)
 		decision.ConfidenceScore -= 40
@@ -121,28 +121,27 @@ func evaluatePayload(payload TradePayload) *EngineDecision {
 		sizeRule.Triggered = true
 		sizeRule.Severity = "SOFT"
 		sizeRule.Reason = fmt.Sprintf(
-			"Trade value of $%.2f enters the escalation band (> $%.2f).",
+			"Trade value of $%.2f enters the borderline risk escalation band (> $%.2f).",
 			calculatedValue, MaxPositionValue*0.8,
 		)
 		decision.ConfidenceScore -= 15
 	}
 	decision.RuleDetails = append(decision.RuleDetails, sizeRule)
 
-	// Routing
-	hasHard := false
-	hasSoft := false
+	hasHardBreach := false
+	hasSoftBreach := false
 	for _, r := range decision.RuleDetails {
 		if r.Severity == "HARD" {
-			hasHard = true
+			hasHardBreach = true
 		}
 		if r.Severity == "SOFT" {
-			hasSoft = true
+			hasSoftBreach = true
 		}
 	}
 
-	if hasHard {
+	if hasHardBreach {
 		decision.Outcome = "BLOCK"
-	} else if hasSoft {
+	} else if hasSoftBreach {
 		decision.Outcome = "ESCALATE"
 	}
 
@@ -150,7 +149,6 @@ func evaluatePayload(payload TradePayload) *EngineDecision {
 		decision.ConfidenceScore = 0
 	}
 
-	// Commit to cryptographic chain
 	stateMutex.Lock()
 	decision.PrevHash = LastChainHash
 	decision.Hash = computeDecisionHash(decision)
@@ -175,17 +173,17 @@ func computeDecisionHash(d *EngineDecision) string {
 }
 
 // ==========================================
-// HTTP HANDLERS
+// HTTP GATEWAY ENDPOINTS
 // ==========================================
 
 func handleRiskCheck(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "Method rejected", http.StatusMethodNotAllowed)
 		return
 	}
 	var payload TradePayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		http.Error(w, "Malformed request taxonomy", http.StatusBadRequest)
 		return
 	}
 	decision := evaluatePayload(payload)
@@ -202,7 +200,7 @@ func handleGetEscalations(w http.ResponseWriter, r *http.Request) {
 
 func handleResolveEscalation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "Method rejected", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -218,32 +216,32 @@ func handleResolveEscalation(w http.ResponseWriter, r *http.Request) {
 
 	var p ResolutionPayload
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-		http.Error(w, "Malformed resolution payload", http.StatusBadRequest)
+		http.Error(w, "Malformed resolution body", http.StatusBadRequest)
 		return
 	}
 	if p.Reason == "" {
-		http.Error(w, "Written reason required for compliance audit", http.StatusBadRequest)
+		http.Error(w, "Mandatory written compliance reason statement required", http.StatusBadRequest)
 		return
 	}
 
 	stateMutex.Lock()
 	defer stateMutex.Unlock()
 
-	var target *EngineDecision
-	foundIdx := -1
+	var targetDecision *EngineDecision
+	foundIndex := -1
 	for i, d := range EscalationQueue {
 		if d.ID == id {
-			target = d
-			foundIdx = i
+			targetDecision = d
+			foundIndex = i
 			break
 		}
 	}
-	if target == nil {
-		http.Error(w, "Escalation not found", http.StatusNotFound)
+	if targetDecision == nil {
+		http.Error(w, "Escalation identifier lookup failure", http.StatusNotFound)
 		return
 	}
 
-	EscalationQueue = append(EscalationQueue[:foundIdx], EscalationQueue[foundIdx+1:]...)
+	EscalationQueue = append(EscalationQueue[:foundIndex], EscalationQueue[foundIndex+1:]...)
 
 	res := HumanResolution{
 		DecisionID: id,
@@ -264,21 +262,23 @@ func handleResolveEscalation(w http.ResponseWriter, r *http.Request) {
 	ResolutionLogs = append(ResolutionLogs, res)
 
 	if p.Action == "REJECT" {
-		executeEmergencyFlatten(target.Payload.Ticker, "Human compliance escalation REJECT initiated.")
+		executeEmergencyFlatten(targetDecision.Payload.Ticker, "Human review denial tracking event.")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "RESOLVED",
-		"hash":   res.Hash,
-	})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "RESOLVED", "hash": res.Hash})
 }
 
 func executeEmergencyFlatten(ticker, reason string) {
-	fmt.Printf("[ALPACA API] DELETE /v2/positions/%s — Reason: %s\n", ticker, reason)
+	fmt.Printf("[ALPACA BROKER ACTUATION] DELETE /v2/positions/%s triggered. Trace Rationale: %s\n", ticker, reason)
 }
 
 func main() {
+	envMode := os.Getenv("ARBITER_ENV")
+	if envMode == "PROD" {
+		fmt.Println("[ROADMAP NOTICE] AWS Nitro hardware enclaves / eBPF kernel hooks are flagged under the engineering roadmap — not active in this build.")
+	}
+
 	http.HandleFunc("/v1/risk/check", handleRiskCheck)
 	http.HandleFunc("/escalations", handleGetEscalations)
 	http.HandleFunc("/escalations/", handleResolveEscalation)
@@ -286,8 +286,6 @@ func main() {
 		http.ServeFile(w, r, "index.html")
 	})
 
-	fmt.Println("Arbiter Risk Gateway listening on :8080...")
+	fmt.Println("Arbiter Core Production Node active on port :8080...")
 	_ = http.ListenAndServe(":8080", nil)
 }
-
-var _ = context.Background

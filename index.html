@@ -3,89 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arbiter Governance Console (v1.0-Prototype)</title>
+    <title>Arbiter Governance Platform (v1.0-Prototype)</title>
     <style>
-        body { font-family: monospace; background: #0A0F1D; color: #38BDF8; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .panel { background: #111827; border: 1px solid #1F2937; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
-        .flex { display: flex; gap: 20px; }
+        body { font-family: monospace; background: #070B19; color: #38BDF8; padding: 25px; }
+        .container { max-width: 1300px; margin: 0 auto; }
+        .panel { background: #0F172A; border: 1px solid #334155; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .flex { display: flex; gap: 25px; }
         .box { flex: 1; }
-        button { background: #3B82F6; color: white; border: none; padding: 8px 12px; cursor: pointer; font-family: monospace; border-radius: 4px; }
-        button:hover { background: #2563EB; }
-        input, textarea { width: 100%; background: #1F2937; color: #F3F4F6; border: 1px solid #374151; padding: 6px; box-sizing: border-box; font-family: monospace; border-radius: 4px; }
-        label { display: block; font-size: 11px; color: #64748B; margin-bottom: 4px; margin-top: 12px; text-transform: uppercase; }
-        .badge { padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 12px; }
-        .badge-pass  { background: rgba(16, 185, 129, 0.2); color: #10B981; }
-        .badge-block { background: rgba(239, 68, 68, 0.2);  color: #EF4444; }
-        .badge-esc   { background: rgba(245, 158, 11, 0.2); color: #F59E0B; }
-        h2 { margin: 0 0 4px 0; color: #F1F5F9; }
-        h3 { margin: 0 0 12px 0; color: #CBD5E1; font-size: 14px; }
+        button { background: #2563EB; color: white; border: none; padding: 10px 16px; cursor: pointer; font-family: monospace; font-weight: bold; border-radius: 4px; }
+        button:hover { background: #1D4ED8; }
+        input { width: 100%; background: #1E293B; color: #F8FAFC; border: 1px solid #475569; padding: 8px; box-sizing: border-box; font-family: monospace; border-radius: 4px; }
+        label { display: block; font-size: 11px; color: #64748B; margin-bottom: 4px; text-transform: uppercase; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }
+        .badge-pass  { background: rgba(16,185,129,0.15); color: #10B981; }
+        .badge-block { background: rgba(239,68,68,0.15);  color: #EF4444; }
+        .badge-esc   { background: rgba(245,158,11,0.15); color: #F59E0B; }
+        h2 { color: #F1F5F9; margin-bottom: 4px; }
+        h3 { color: #CBD5E1; font-size: 14px; margin: 0 0 14px 0; }
         @media (max-width: 700px) { .flex { flex-direction: column; } }
     </style>
 </head>
 <body>
 <div class="container">
-    <h2>Arbiter Gateway Management Interface</h2>
+    <h2>Arbiter Real-Time Ingestion Console</h2>
     <p style="color:#94A3B8; margin-top:4px; font-size:12px;">
-        v1.0-Prototype &nbsp;|&nbsp; Real-time risk decisions across active API pipelines.
-        &nbsp;|&nbsp; <span style="color:#F59E0B;">No fabricated latency metrics. No unbuilt features presented as live.</span>
+        v1.0-Prototype &nbsp;|&nbsp; Pragmatic risk evaluation and four-eyes human compliance workflow verification routing.
     </p>
 
     <div class="flex">
-        <!-- TRADE DRIVER -->
+        <!-- TRADE GATEWAY -->
         <div class="panel box">
-            <h3>1. AI Agent Trade Driver</h3>
+            <h3>1. AI Agent Trading Simulation Gateway</h3>
 
-            <label>Asset Ticker</label>
-            <input type="text" id="ticker" value="ETH">
-
-            <label>Trade Total Value ($)</label>
-            <input type="number" id="value" value="42000">
+            <label>Target Ticker Symbol</label>
+            <input type="text" id="ticker" value="SOL">
 
             <br><br>
-            <button onclick="sendPayload()">Submit Instruction Frame</button>
+            <label>Total Dollar Trade Request Value ($)</label>
+            <input type="number" id="value" value="45000">
 
-            <p style="font-size:11px; color:#94A3B8; margin-top:12px; line-height:1.6;">
-                💡 <strong>Value &gt; $50,000</strong> → immediate <span class="badge badge-block">BLOCK</span><br>
-                💡 <strong>Value $40,000–$50,000</strong> → human <span class="badge badge-esc">ESCALATE</span><br>
-                💡 <strong>Ticker = GHOST or TEST</strong> → hard <span class="badge badge-block">BLOCK</span>
+            <br><br>
+            <button onclick="dispatchTradeFrame()">Process Gateway Verification</button>
+
+            <p style="font-size:11px; color:#64748B; margin-top:14px; line-height:1.7;">
+                📋 Rules Engine Parameters:<br>
+                &nbsp;Value &gt; $50,000 → automatic <span class="badge badge-block">BLOCK</span><br>
+                &nbsp;Value $40,000 – $50,000 → <span class="badge badge-esc">ESCALATE</span> to review queue<br>
+                &nbsp;Ticker GHOST or TEST → hard <span class="badge badge-block">BLOCK</span>
             </p>
         </div>
 
-        <!-- TELEMETRY CONSOLE -->
+        <!-- TELEMETRY -->
         <div class="panel box">
-            <h3>2. Real-Time Processing Engine Telemetry</h3>
-            <div id="console" style="height:200px; overflow-y:auto; background:#030712; padding:10px; font-size:12px; color:#34D399; border-radius:4px; white-space:pre-wrap;">System operational. Awaiting incoming API payload signals...</div>
+            <h3>2. Local Ingestion Trace Metrics</h3>
+            <div id="console" style="height:210px; overflow-y:auto; background:#020617; padding:12px; font-size:12px; color:#34D399; border-radius:6px; white-space:pre-wrap;">Engine listening on local port. Submit transaction boundaries to inspect output logs...</div>
         </div>
     </div>
 
     <!-- ESCALATION QUEUE -->
     <div class="panel">
-        <h3>3. Human-In-The-Loop Escalation Queue</h3>
-        <button onclick="refreshEscalations()">Refresh Escalation Queue</button>
-        <div id="escalation-zone" style="margin-top:15px; color:#94A3B8; font-size:13px;">
-            Click refresh to load pending escalations.
+        <h3>3. Real-Time Compliance Review Queue (Human-In-The-Loop)</h3>
+        <button style="background:#475569;" onclick="fetchPendingEscalations()">Sync Inbound Queue State</button>
+        <div id="escalation-target-zone" style="margin-top:15px; font-size:13px; color:#64748B;">
+            Click sync to load pending escalations.
         </div>
     </div>
 </div>
 
 <script>
     function log(msg, color) {
-        const div = document.getElementById('console');
-        div.innerHTML += `\n<span style="color:${color || '#34D399'}">[${new Date().toLocaleTimeString()}] ${msg}</span>`;
-        div.scrollTop = div.scrollHeight;
+        const c = document.getElementById('console');
+        c.innerHTML += `\n<span style="color:${color || '#34D399'}">[${new Date().toLocaleTimeString()}] ${msg}</span>`;
+        c.scrollTop = c.scrollHeight;
     }
 
-    function sendPayload() {
-        const ticker = document.getElementById('ticker').value.trim().toUpperCase();
-        const value  = parseFloat(document.getElementById('value').value);
-
+    function dispatchTradeFrame() {
         const payload = {
-            agent_id:    "agent_alpha",
-            ticker:      ticker,
+            agent_id:    "agent_v1_prototype",
+            ticker:      document.getElementById('ticker').value.trim().toUpperCase(),
             quantity:    1.0,
-            price:       value,
-            total_value: value,
+            price:       parseFloat(document.getElementById('value').value),
+            total_value: parseFloat(document.getElementById('value').value),
         };
 
         fetch('/v1/risk/check', {
@@ -96,44 +94,50 @@
         .then(res => res.json())
         .then(data => {
             const colors = { PASS: '#10B981', BLOCK: '#EF4444', ESCALATE: '#F59E0B' };
-            const badgeClass = { PASS: 'badge-pass', BLOCK: 'badge-block', ESCALATE: 'badge-esc' };
+            const badges = { PASS: 'badge-pass', BLOCK: 'badge-block', ESCALATE: 'badge-esc' };
             log(
-                `Outcome: <span class="badge ${badgeClass[data.outcome]}">${data.outcome}</span>` +
-                ` | Confidence: ${data.confidence_score}/100 | ID: ${data.id}`,
+                `Decision: <span class="badge ${badges[data.outcome]}">${data.outcome}</span>` +
+                ` | Confidence: ${data.confidence_score}/100` +
+                ` | Hash: ${data.hash.substring(0, 12)}...`,
                 colors[data.outcome]
             );
-            if (data.outcome === 'BLOCK') {
-                log(`  ↳ Rule triggered: ${data.rule_details.find(r => r.triggered)?.reason || ''}`, '#EF4444');
-            }
             if (data.outcome === 'ESCALATE') {
-                log(`  ↳ Soft breach detected — awaiting human review`, '#F59E0B');
-                refreshEscalations();
+                log('  ↳ Trade held for human review', '#F59E0B');
+                fetchPendingEscalations();
+            }
+            if (data.outcome === 'BLOCK') {
+                const triggered = data.rule_details.find(r => r.triggered);
+                if (triggered) log(`  ↳ ${triggered.reason}`, '#EF4444');
             }
         })
         .catch(err => log(`Request failed: ${err}`, '#EF4444'));
     }
 
-    function refreshEscalations() {
+    function fetchPendingEscalations() {
         fetch('/escalations')
         .then(res => res.json())
         .then(data => {
-            const zone = document.getElementById('escalation-zone');
+            const zone = document.getElementById('escalation-target-zone');
             if (!data || data.length === 0) {
-                zone.innerHTML = '<span style="color:#64748B;">No trades currently awaiting human review.</span>';
+                zone.innerHTML = '<span style="color:#475569;">No trades currently held pending human compliance oversight.</span>';
                 return;
             }
             zone.innerHTML = data.map(item => `
-                <div style="background:#1F2937; padding:12px; border-radius:4px; margin-bottom:10px; border-left:3px solid #F59E0B;">
-                    <div style="font-size:12px; color:#CBD5E1; margin-bottom:8px;">
-                        <strong>ID:</strong> ${item.id} &nbsp;|&nbsp;
-                        <strong>Ticker:</strong> ${item.payload.ticker} &nbsp;|&nbsp;
-                        <strong>Value:</strong> $${item.payload.price.toLocaleString()} &nbsp;|&nbsp;
-                        <strong>Confidence:</strong> ${item.confidence_score}/100
+                <div style="background:#1E293B; padding:14px; border-radius:6px; margin-bottom:12px; border:1px solid #475569;">
+                    <div style="font-size:12px; color:#CBD5E1; margin-bottom:10px;">
+                        <strong>Tx Hash:</strong> ${item.hash}<br>
+                        <strong>Asset:</strong> ${item.payload.ticker}
+                        &nbsp;|&nbsp; <strong>Value:</strong> $${item.payload.price.toLocaleString()}
+                        &nbsp;|&nbsp; <strong>Confidence:</strong> ${item.confidence_score}/100
                     </div>
-                    <input type="text" id="reason-${item.id}" placeholder="Mandatory written compliance rationale (required for audit trail)" style="margin-bottom:8px;">
+                    <input type="text" id="reason-${item.id}"
+                           placeholder="Enter mandatory written justification for audit compliance records"
+                           style="margin-bottom:10px;">
                     <div>
-                        <button style="background:#10B981; color:#000; font-weight:bold;" onclick="resolve('${item.id}', 'ALLOW')">✓ Approve (ALLOW)</button>
-                        <button style="background:#EF4444; margin-left:8px;" onclick="resolve('${item.id}', 'REJECT')">✗ Reject (REJECT)</button>
+                        <button style="background:#10B981; color:#070B19;"
+                                onclick="resolveReview('${item.id}', 'ALLOW')">✓ Approve &amp; Release (ALLOW)</button>
+                        <button style="background:#EF4444; margin-left:8px;"
+                                onclick="resolveReview('${item.id}', 'REJECT')">✗ Deny &amp; Liquidate (REJECT)</button>
                     </div>
                 </div>
             `).join('');
@@ -141,10 +145,10 @@
         .catch(err => log(`Escalation fetch failed: ${err}`, '#EF4444'));
     }
 
-    function resolve(id, action) {
+    function resolveReview(id, action) {
         const reason = document.getElementById(`reason-${id}`).value.trim();
         if (!reason) {
-            alert('A written rationale is mandatory for the compliance audit trail.');
+            alert('A formal written reason is mandatory to satisfy SEC/FINRA compliance audit requirements.');
             return;
         }
 
@@ -153,7 +157,7 @@
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({
                 action:     action,
-                reviewer:   'Compliance Officer',
+                reviewer:   'Patience Fuglo',
                 credential: 'CQF',
                 reason:     reason,
             }),
@@ -161,14 +165,15 @@
         .then(res => res.json())
         .then(data => {
             const color = action === 'ALLOW' ? '#10B981' : '#EF4444';
-            log(`Human resolution: ${action} on tx ${id} — Hash: ${data.hash.slice(0,16)}...`, color);
-            if (action === 'REJECT') {
-                log(`  ↳ Emergency flatten initiated via Alpaca API`, '#EF4444');
-            }
-            refreshEscalations();
+            log(`Human resolution: ${action} on tx ${id} | Hash: ${data.hash.substring(0, 12)}...`, color);
+            if (action === 'REJECT') log('  ↳ Alpaca broker flatten initiated', '#EF4444');
+            fetchPendingEscalations();
         })
         .catch(err => log(`Resolution failed: ${err}`, '#EF4444'));
     }
+
+    // Auto-load escalation queue on page open
+    fetchPendingEscalations();
 </script>
 </body>
 </html>

@@ -1,47 +1,47 @@
 # Arbiter Core
 
-An independent governance layer and pre-trade safety gate for autonomous AI agents executing financial transactions.
+An independent pre-trade risk engine and governance layer built specifically to manage non-deterministic execution risks originating from autonomous AI agents.
 
 ---
 
-## What Is Actually Built and Shipped
+## System Status & Built Realities
 
-This codebase is maintained with strict engineering honesty. Every feature listed below compiles, runs, and can be tested locally with a single command.
+This repository operates under a mandate of strict engineering honesty. No fabricated latency profiles, no unbuilt features presented as live.
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **Go Rule Engine** | Shipped | High-speed, type-safe transaction parsing and evaluation |
-| **Graduated Evaluation (PASS / BLOCK / ESCALATE)** | Shipped | Three-outcome risk decision matrix replacing a binary kill switch |
-| **0–100 Confidence Scorer** | Shipped | Per-transaction risk confidence derived from rule severity weights |
-| **Human-In-The-Loop Escalation** | Shipped | Borderline trades enter a compliance review queue with mandatory written rationale |
-| **Cryptographic Audit Trail** | Shipped | SHA-256 Merkle-linked chain of every decision and resolution — tamper-evident |
-| **Broker Flatten Placeholder** | Shipped | `executeEmergencyFlatten()` prints the Alpaca DELETE call — ready for a real key |
+| **Go Rules Core** | Shipped | Type-safe transaction processing — JSON ingestion, validation, and routing |
+| **Graduated Action Matrix (PASS / BLOCK / ESCALATE)** | Shipped | Three-outcome decision schema based on exact value severity margins — replaces binary allow/deny |
+| **0–100 Confidence Scorer** | Shipped | Per-decision risk confidence derived from rule severity weights |
+| **Human-In-The-Loop Layer** | Shipped | Dashboard holds borderline trades pending manual review — logs reviewer identity, credentials (e.g., CQF), written reason, and nanosecond timestamp |
+| **Tamper-Evident Ledger** | Shipped | SHA-256 Merkle-linked chain anchoring all engine decisions and human resolutions — cryptographically verifiable |
+| **Alpaca Broker Kill-Switch** | Shipped (mock) | Code path calls `DELETE /v2/positions/{ticker}` — prints to console, ready for a live API key |
 
 ---
 
-## The Evaluation Pipeline
+## Evaluation Pipeline
 
 ```
-Inbound trade payload (POST /v1/risk/check)
-            ↓
-┌───────────────────────────────────────┐
-│  Rule 1: Banned Asset Check (HARD)    │
-│  Rule 2: Graduated Position Size      │
-│    > $50,000           → HARD BREACH  │
-│    $40,000 – $50,000   → SOFT BREACH  │
-│    < $40,000           → OK           │
-└───────────────────────────────────────┘
-            ↓
-  HARD breach → BLOCK (confidence −40 to −50)
-  SOFT breach → ESCALATE (confidence −15)
-  No breach   → PASS (confidence 100)
-            ↓
-  SHA-256 hash computed, chained to previous block
-  Decision written to in-memory registry
-  ESCALATE → enters human review queue
+POST /v1/risk/check
+        ↓
+┌──────────────────────────────────────────┐
+│  Rule 1: BannedAssetCheck                │
+│    GHOST, TEST → HARD breach             │
+│                                          │
+│  Rule 2: GraduatedSizeCheck              │
+│    TotalValue > $50,000  → HARD breach   │
+│    TotalValue > $40,000  → SOFT breach   │
+│    TotalValue ≤ $40,000  → OK            │
+└──────────────────────────────────────────┘
+        ↓
+  HARD breach   → BLOCK   (confidence −40 to −50)
+  SOFT breach   → ESCALATE (confidence −15, enters review queue)
+  No breach     → PASS    (confidence 100)
+        ↓
+  SHA-256 hash computed and chained to previous block
+  Decision stored in registry
+  Human resolutions also chained — full immutable audit trail
 ```
-
-Every outcome — PASS, BLOCK, ESCALATE — is hashed and chained. Human resolutions are also hashed and appended to the same chain, creating a complete immutable record of every action taken by both the engine and the compliance team.
 
 ---
 
@@ -53,99 +53,78 @@ cd arbiter-core
 go run main.go
 ```
 
-Open `http://localhost:8080` in a browser to use the governance console.
+Open `http://localhost:8080` to use the governance console.
+
+No Docker, no Redis, no Rust toolchain required.
 
 ---
 
 ## Benchmarks & Verification
 
-No configuration needed — just clone and run:
-
 ```bash
-# Measure real handler latency on your hardware
+# Real handler latency on your hardware
 go test -bench=. -benchmem
 
-# Verify the tamper-evident chain catches mutations
+# Tamper-detection: watch the chain break when data is altered
 go test -v -run=TestCryptographicTamperDetection
 ```
 
-Expected benchmark output (indicative — varies by hardware):
+Expected tamper test output:
 ```
-BenchmarkEngineRiskEvaluation-8        ~500,000 ops/sec    ~2,400 ns/op
-BenchmarkEngineRiskEvaluationParallel-8  ~2,000,000 ops/sec    ~600 ns/op
-```
-
-Expected tamper detection output:
-```
-[INTEGRITY VERIFY] Baseline audit chain passes cryptographic linkage validation.
-[TAMPER SIMULATION] Altering historic block price field...
-[TAMPER CAUGHT] Audit engine rejected altered state: hash mismatch at block tx_...
+[TEST STEP 1] Appending valid blocks sequentially into blockchain ledger...
+[TEST STEP 2] Baseline audit ledger verification successful. Chain structure valid.
+[TEST STEP 3] Executing deliberate data tamper intercept on Block 1 historic values...
+[TEST STEP 4] SUCCESS. System isolated structural modification. Validation mismatch: cryptographic corruption at block tx_...
 PASS
 ```
 
 ---
 
-## API Reference
+## API
 
 ### `POST /v1/risk/check`
 
-Submit a trade payload for evaluation.
-
-**Request:**
 ```json
 {
   "agent_id":    "quant_bot_1",
-  "ticker":      "ETH",
+  "ticker":      "SOL",
   "quantity":    1.0,
-  "price":       3000.0,
-  "total_value": 42000.0
+  "price":       45000.0,
+  "total_value": 45000.0
 }
 ```
 
-**Response:**
+Response:
 ```json
 {
   "id":               "tx_1719543200000000000",
   "outcome":          "ESCALATE",
   "confidence_score": 85,
   "rule_details": [
-    { "rule_name": "BannedAssetCheck",  "triggered": false, "severity": "OK",   "reason": "Asset is cleared." },
-    { "rule_name": "GraduatedSizeCheck","triggered": true,  "severity": "SOFT", "reason": "Trade value of $42000.00 enters the escalation band (> $40000.00)." }
+    { "rule_name": "BannedAssetCheck",   "triggered": false, "severity": "OK",   "reason": "Asset is cleared." },
+    { "rule_name": "GraduatedSizeCheck", "triggered": true,  "severity": "SOFT", "reason": "Trade value of $45000.00 enters the borderline risk escalation band (> $40000.00)." }
   ],
   "prev_hash": "a3f9...",
   "hash":      "7c2b..."
 }
 ```
 
-Possible `outcome` values:
-
-| Outcome | Condition | Next Step |
-|---------|-----------|-----------|
-| `PASS` | All rules clear | Trade proceeds |
-| `BLOCK` | Hard rule triggered | Trade rejected immediately |
-| `ESCALATE` | Soft rule triggered | Enters human review queue |
-
 ### `GET /escalations`
 
-Returns the current list of trades awaiting human review.
+Returns all trades currently awaiting human review.
 
 ### `POST /escalations/{id}/resolve`
-
-Resolve an escalated trade. A written reason is mandatory.
 
 ```json
 {
   "action":     "ALLOW",
   "reviewer":   "Jane Smith",
   "credential": "CQF",
-  "reason":     "Reviewed counterparty exposure — within fund mandate for this asset class."
+  "reason":     "Reviewed counterparty exposure — within fund mandate."
 }
 ```
 
-| Action | Effect |
-|--------|--------|
-| `ALLOW` | Trade is approved and logged to the audit chain |
-| `REJECT` | Trade is rejected; `executeEmergencyFlatten()` is called |
+`ALLOW` approves and logs. `REJECT` logs and calls `executeEmergencyFlatten()`.
 
 ---
 
@@ -153,22 +132,23 @@ Resolve an escalated trade. A written reason is mandatory.
 
 ```
 arbiter-core/
-├── main.go          # Rule engine, HTTP handlers, cryptographic ledger
-├── main_test.go     # Benchmarks + tamper-detection test
-├── index.html       # Governance console (served at /)
+├── main.go        # Rule engine, HTTP handlers, cryptographic ledger, broker stub
+├── main_test.go   # Benchmarks + tamper-detection validation test
+├── index.html     # Governance console (served at /)
 ├── go.mod
 └── README.md
 ```
 
 ---
 
-## Optimization Roadmap (Not Yet Built)
+## Technical Optimization Roadmap (Not Yet Built)
 
-The following are planned engineering upgrades — none are presented as currently active:
-
-- **Live Market Feeds** — Redis pub/sub or Kafka integration to stream real-time top-of-book prices into the divergence engine
-- **Rust Validation Daemon** — Rewriting the hot-path evaluation loop in Rust to eliminate GC pauses and maximize throughput under sustained load
-- **AWS Nitro Secure Enclaves** — Sealing the execution context inside hardware-isolated computing environments for institutional memory encryption guarantees
+| Item | Description |
+|------|-------------|
+| **Rust Performance Daemon** | Rewriting the hot-path evaluation loop in Rust to eliminate GC pauses and maximize sustained throughput |
+| **AWS Nitro Secure Enclaves** | Sealing execution context inside hardware-encrypted partitions — memory isolation guarantees for institutional deployment |
+| **eBPF Network Interception** | Moving packet capture to the Linux kernel space to bypass application-layer latency entirely |
+| **Live Market Feed (Redis/Kafka)** | Streaming real-time top-of-book prices into a divergence engine for slippage detection |
 
 ---
 
