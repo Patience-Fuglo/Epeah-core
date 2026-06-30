@@ -1,340 +1,293 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"crypto/subtle"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
-	"net"
 	"net/http"
-	"os"
-	"sync/atomic"
+	"strings"
+	"sync"
 	"time"
 )
 
+// ==========================================
+// DATA STRUCTURES
+// ==========================================
+
 type TradePayload struct {
-	AgentID        string  `json:"agent_id"`
-	Timestamp      int64   `json:"timestamp"`
-	AssetClass     string  `json:"asset_class"`
-	Ticker         string  `json:"ticker"`
-	OrderType      string  `json:"order_type"`
-	Quantity       float64 `json:"quantity"`
-	Price          float64 `json:"price"`
-	ContextWindow  string  `json:"context_window_reasoning"`
-	CryptoChecksum string  `json:"crypto_checksum"`
+	AgentID    string  `json:"agent_id"`
+	Ticker     string  `json:"ticker"`
+	Quantity   float64 `json:"quantity"`
+	Price      float64 `json:"price"`
+	TotalValue float64 `json:"total_value"`
 }
 
-type RiskVerdict struct {
-	Decision  string `json:"decision"`
+type RuleResult struct {
+	RuleName  string `json:"rule_name"`
+	Triggered bool   `json:"triggered"`
+	Severity  string `json:"severity"` // "OK", "SOFT", "HARD"
 	Reason    string `json:"reason"`
-	LatencyMs int64  `json:"latency_ms"`
 }
 
-const MaxPositionSize = 100000.0
-const BannedAsset = "DOGE"
-
-type MirrorClient struct {
-	socketPath string
-	conn       net.Conn
+type EngineDecision struct {
+	ID              string       `json:"id"`
+	Payload         TradePayload `json:"payload"`
+	Outcome         string       `json:"outcome"` // "PASS", "BLOCK", "ESCALATE"
+	ConfidenceScore int          `json:"confidence_score"`
+	RuleDetails     []RuleResult `json:"rule_details"`
+	Timestamp       int64        `json:"timestamp"`
+	PrevHash        string       `json:"prev_hash"`
+	Hash            string       `json:"hash"`
 }
 
-func NewMirrorClient(socketPath string) (*MirrorClient, error) {
-	dialer := net.Dialer{Timeout: 500 * time.Millisecond}
-	conn, err := dialer.Dial("unix", socketPath)
-	if err != nil {
-		return nil, err
+type HumanResolution struct {
+	DecisionID string `json:"decision_id"`
+	Action     string `json:"action"` // "ALLOW", "REJECT"
+	Reviewer   string `json:"reviewer"`
+	Credential string `json:"credential"`
+	Reason     string `json:"reason"`
+	Timestamp  int64  `json:"timestamp"`
+	PrevHash   string `json:"prev_hash"`
+	Hash       string `json:"hash"`
+}
+
+// ==========================================
+// STATE
+// ==========================================
+
+var (
+	stateMutex         sync.Mutex
+	DecisionRegistry   = make(map[string]*EngineDecision)
+	EscalationQueue    = make([]*EngineDecision, 0)
+	ResolutionLogs     = make([]HumanResolution, 0)
+	CryptographicChain = make([]string, 0)
+	LastChainHash      = "0000000000000000000000000000000000000000000000000000000000000000"
+)
+
+const MaxPositionValue = 50000.0
+
+var BannedAssets = map[string]bool{"GHOST": true, "TEST": true}
+
+// ==========================================
+// EVALUATION ENGINE
+// ==========================================
+
+func evaluatePayload(payload TradePayload) *EngineDecision {
+	decision := &EngineDecision{
+		ID:              fmt.Sprintf("tx_%d", time.Now().UnixNano()),
+		Payload:         payload,
+		Outcome:         "PASS",
+		ConfidenceScore: 100,
+		RuleDetails:     make([]RuleResult, 0),
+		Timestamp:       time.Now().UnixNano(),
 	}
-	return &MirrorClient{socketPath: socketPath, conn: conn}, nil
-}
 
-func (mc *MirrorClient) MirrorPayload(ctx context.Context, payload interface{}) {
-	go func() {
-		data, err := json.Marshal(payload)
-		if err != nil {
-			return
+	// Rule 1: Banned Asset Check (Hard)
+	bannedRule := RuleResult{
+		RuleName: "BannedAssetCheck",
+		Severity: "OK",
+		Reason:   "Asset is cleared for transaction routing.",
+	}
+	if BannedAssets[strings.ToUpper(payload.Ticker)] {
+		bannedRule.Triggered = true
+		bannedRule.Severity = "HARD"
+		bannedRule.Reason = fmt.Sprintf("Asset %s is explicitly restricted.", payload.Ticker)
+		decision.ConfidenceScore -= 50
+	}
+	decision.RuleDetails = append(decision.RuleDetails, bannedRule)
+
+	// Rule 2: Graduated Position Size
+	calculatedValue := payload.Quantity * payload.Price
+	if payload.TotalValue > 0 {
+		calculatedValue = payload.TotalValue
+	}
+
+	sizeRule := RuleResult{
+		RuleName: "GraduatedSizeCheck",
+		Severity: "OK",
+		Reason:   "Position parameters fall within standard allocations.",
+	}
+	if calculatedValue > MaxPositionValue {
+		sizeRule.Triggered = true
+		sizeRule.Severity = "HARD"
+		sizeRule.Reason = fmt.Sprintf(
+			"Trade value of $%.2f exceeds the $%.2f hard threshold.",
+			calculatedValue, MaxPositionValue,
+		)
+		decision.ConfidenceScore -= 40
+	} else if calculatedValue > MaxPositionValue*0.8 {
+		sizeRule.Triggered = true
+		sizeRule.Severity = "SOFT"
+		sizeRule.Reason = fmt.Sprintf(
+			"Trade value of $%.2f enters the escalation band (> $%.2f).",
+			calculatedValue, MaxPositionValue*0.8,
+		)
+		decision.ConfidenceScore -= 15
+	}
+	decision.RuleDetails = append(decision.RuleDetails, sizeRule)
+
+	// Routing
+	hasHard := false
+	hasSoft := false
+	for _, r := range decision.RuleDetails {
+		if r.Severity == "HARD" {
+			hasHard = true
 		}
-
-		data = append(data, '\n')
-
-		_ = mc.conn.SetWriteDeadline(time.Now().Add(2 * time.Millisecond))
-		_, _ = mc.conn.Write(data)
-	}()
-}
-
-type InboundKillSignal struct {
-	SignalType      string `json:"signal_type"`
-	AgentID         string `json:"agent_id"`
-	Ticker          string `json:"ticker"`
-	ViolationReason string `json:"violation_reason"`
-	Timestamp       int64  `json:"timestamp"`
-}
-
-type TelemetryTracker struct {
-	TotalSignalsRead   uint64
-	SuccessfulDrops    uint64
-	ProcessingFailures uint64
-}
-
-func (mc *MirrorClient) StartConcurrentSignalListener(workerCount int, apiKey, apiSecret string) *TelemetryTracker {
-	tracker := &TelemetryTracker{}
-
-	signalChannel := make(chan []byte, 50000)
-
-	for i := 0; i < workerCount; i++ {
-		go func(workerID int) {
-			for rawLine := range signalChannel {
-				if bytes.Contains(rawLine, []byte("KILL_FLATTEN")) {
-					var signal InboundKillSignal
-					if err := json.Unmarshal(rawLine, &signal); err != nil {
-						atomic.AddUint64(&tracker.ProcessingFailures, 1)
-						continue
-					}
-
-					start := time.Now()
-					executeEmergencyFlatten(signal, apiKey, apiSecret)
-
-					if time.Since(start) <= 2*time.Millisecond {
-						atomic.AddUint64(&tracker.SuccessfulDrops, 1)
-					}
-				}
-			}
-		}(i)
-	}
-
-	go func() {
-		defer close(signalChannel)
-		scanner := bufio.NewScanner(mc.conn)
-		scanner.Buffer(make([]byte, 4096), 4096)
-
-		for scanner.Scan() {
-			rawLine := append([]byte(nil), scanner.Bytes()...)
-
-			atomic.AddUint64(&tracker.TotalSignalsRead, 1)
-
-			select {
-			case signalChannel <- rawLine:
-			default:
-				atomic.AddUint64(&tracker.ProcessingFailures, 1)
-			}
+		if r.Severity == "SOFT" {
+			hasSoft = true
 		}
-	}()
+	}
 
-	return tracker
+	if hasHard {
+		decision.Outcome = "BLOCK"
+	} else if hasSoft {
+		decision.Outcome = "ESCALATE"
+	}
+
+	if decision.ConfidenceScore < 0 {
+		decision.ConfidenceScore = 0
+	}
+
+	// Commit to cryptographic chain
+	stateMutex.Lock()
+	decision.PrevHash = LastChainHash
+	decision.Hash = computeDecisionHash(decision)
+	LastChainHash = decision.Hash
+	CryptographicChain = append(CryptographicChain, decision.Hash)
+	DecisionRegistry[decision.ID] = decision
+	if decision.Outcome == "ESCALATE" {
+		EscalationQueue = append(EscalationQueue, decision)
+	}
+	stateMutex.Unlock()
+
+	return decision
 }
 
-func (t *TelemetryTracker) PrintTelemetryReport() {
-	read := atomic.LoadUint64(&t.TotalSignalsRead)
-	drops := atomic.LoadUint64(&t.SuccessfulDrops)
-	fails := atomic.LoadUint64(&t.ProcessingFailures)
-
-	fmt.Println("\n===================================================================")
-	fmt.Println("             ARBITER TELEMETRY ENGINE HEALTH REPORT                ")
-	fmt.Println("===================================================================")
-	fmt.Printf("Total Signals Extracted from IPC Socket: %d\n", read)
-	fmt.Printf("Successful Urgent API Dispatches (<2ms):  %d\n", drops)
-	fmt.Printf("Queue Buffer Drops / JSON Parse Errors:   %d\n", fails)
-	if read > 0 {
-		fmt.Printf("System Reliability Operational Coefficient: %.2f%%\n", float64(drops)/float64(read)*100)
-	}
-	fmt.Println("===================================================================")
+func computeDecisionHash(d *EngineDecision) string {
+	raw := fmt.Sprintf("%s:%s:%f:%f:%s:%d:%s",
+		d.ID, d.Payload.Ticker, d.Payload.Quantity, d.Payload.Price,
+		d.Outcome, d.Timestamp, d.PrevHash,
+	)
+	h := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(h[:])
 }
 
-func executeEmergencyFlatten(signal InboundKillSignal, apiKey, apiSecret string) {
-	url := fmt.Sprintf("https://paper-api.alpaca.markets/v2/positions/%s", signal.Ticker)
+// ==========================================
+// HTTP HANDLERS
+// ==========================================
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2000*time.Millisecond)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
-	if err != nil {
+func handleRiskCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
-	req.Header.Set("APCA-API-KEY-ID", apiKey)
-	req.Header.Set("APCA-API-SECRET-KEY", apiSecret)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{
-		Transport: &http.Transport{
-			DisableKeepAlives: true,
-		},
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("[CRITICAL SYSTEM FAULT] Failed to execute emergency liquidations: %v\n", err)
+	var payload TradePayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
 		return
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusAccepted {
-		fmt.Printf("[SYSTEM HARDENED] Arbiter successfully flattened risk position for Ticker: %s. Reason: %s\n",
-			signal.Ticker, signal.ViolationReason)
-	} else {
-		fmt.Printf("[CRITICAL ERROR] Broker rejected emergency liquidation with status code: %d\n", resp.StatusCode)
-	}
-}
-
-type ComplianceExportHandler struct {
-	LedgerPath string
-	AdminToken string
-}
-
-func NewComplianceExportHandler(ledgerPath, adminToken string) *ComplianceExportHandler {
-	return &ComplianceExportHandler{
-		LedgerPath: ledgerPath,
-		AdminToken: adminToken,
-	}
-}
-
-func (h *ComplianceExportHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	providedToken := r.Header.Get("X-Arbiter-Auth")
-	if subtle.ConstantTimeCompare([]byte(providedToken), []byte(h.AdminToken)) != 1 {
-		http.Error(w, "Unauthorized compliance access attempt logged.", http.StatusUnauthorized)
-		return
-	}
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)
-		return
-	}
-
-	file, err := os.Open(h.LedgerPath)
-	if err != nil {
-		http.Error(w, "Ledger storage target unreadable or currently rotating.", http.StatusInternalServerError)
-		return
-	}
-	defer file.Close()
-
-	w.Header().Set("Content-Disposition", "attachment; filename=arbiter_compliance_audit.json")
+	decision := evaluatePayload(payload)
 	w.Header().Set("Content-Type", "application/json")
-
-	_, _ = io.Copy(w, file)
+	_ = json.NewEncoder(w).Encode(decision)
 }
 
-var mirror *MirrorClient
-var enclave *EnclaveClient
-
-func evaluateRisk(payload TradePayload) RiskVerdict {
-	startTime := time.Now()
-
-	totalNotional := payload.Quantity * payload.Price
-
-	if totalNotional > MaxPositionSize {
-		return RiskVerdict{
-			Decision:  "KILL",
-			Reason:    fmt.Sprintf("Position size limit exceeded. Requested: $%.2f, Max: $%.2f", totalNotional, MaxPositionSize),
-			LatencyMs: time.Since(startTime).Milliseconds(),
-		}
-	}
-
-	if payload.Ticker == BannedAsset {
-		return RiskVerdict{
-			Decision:  "KILL",
-			Reason:    fmt.Sprintf("Ticker '%s' is on the internal risk restriction list.", payload.Ticker),
-			LatencyMs: time.Since(startTime).Milliseconds(),
-		}
-	}
-
-	return RiskVerdict{
-		Decision:  "ALLOW",
-		Reason:    "Payload within established risk parameters.",
-		LatencyMs: time.Since(startTime).Milliseconds(),
-	}
+func handleGetEscalations(w http.ResponseWriter, r *http.Request) {
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(EscalationQueue)
 }
 
-func handleCheckRisk(w http.ResponseWriter, r *http.Request) {
+func handleResolveEscalation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var payload TradePayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid payload format", http.StatusBadRequest)
+	id := strings.TrimPrefix(r.URL.Path, "/escalations/")
+	id = strings.TrimSuffix(id, "/resolve")
+
+	type ResolutionPayload struct {
+		Action     string `json:"action"`
+		Reviewer   string `json:"reviewer"`
+		Credential string `json:"credential"`
+		Reason     string `json:"reason"`
+	}
+
+	var p ResolutionPayload
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		http.Error(w, "Malformed resolution payload", http.StatusBadRequest)
+		return
+	}
+	if p.Reason == "" {
+		http.Error(w, "Written reason required for compliance audit", http.StatusBadRequest)
 		return
 	}
 
-	if mirror != nil {
-		mirror.MirrorPayload(context.Background(), payload)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+
+	var target *EngineDecision
+	foundIdx := -1
+	for i, d := range EscalationQueue {
+		if d.ID == id {
+			target = d
+			foundIdx = i
+			break
+		}
+	}
+	if target == nil {
+		http.Error(w, "Escalation not found", http.StatusNotFound)
+		return
 	}
 
-	verdict := evaluateRisk(payload)
+	EscalationQueue = append(EscalationQueue[:foundIdx], EscalationQueue[foundIdx+1:]...)
 
-	if verdict.Decision == "KILL" {
-		go triggerBrokerKillSwitch(payload.AgentID, verdict.Reason)
+	res := HumanResolution{
+		DecisionID: id,
+		Action:     p.Action,
+		Reviewer:   p.Reviewer,
+		Credential: p.Credential,
+		Reason:     p.Reason,
+		Timestamp:  time.Now().UnixNano(),
+		PrevHash:   LastChainHash,
+	}
+	raw := fmt.Sprintf("%s:%s:%s:%s:%d:%s",
+		res.DecisionID, res.Action, res.Reviewer, res.Reason, res.Timestamp, res.PrevHash,
+	)
+	h := sha256.Sum256([]byte(raw))
+	res.Hash = hex.EncodeToString(h[:])
+	LastChainHash = res.Hash
+	CryptographicChain = append(CryptographicChain, res.Hash)
+	ResolutionLogs = append(ResolutionLogs, res)
+
+	if p.Action == "REJECT" {
+		executeEmergencyFlatten(target.Payload.Ticker, "Human compliance escalation REJECT initiated.")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(verdict)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "RESOLVED",
+		"hash":   res.Hash,
+	})
 }
 
-func triggerBrokerKillSwitch(agentID string, reason string) {
-	log.Printf("[CRITICAL AUTO-KILL] Initiating broker kill-switch for Agent: %s. Reason: %s", agentID, reason)
+func executeEmergencyFlatten(ticker, reason string) {
+	fmt.Printf("[ALPACA API] DELETE /v2/positions/%s — Reason: %s\n", ticker, reason)
 }
-
-const shadowSocketPath = "/var/run/arbiter/shadow.sock"
-
-const complianceLedgerPath = "/var/log/arbiter/compliance_ledger.json"
 
 func main() {
-	http.HandleFunc("/v1/risk/check", handleCheckRisk)
-
-	exportHandler := NewComplianceExportHandler(
-		complianceLedgerPath,
-		os.Getenv("ARBITER_COMPLIANCE_TOKEN"),
-	)
-	http.Handle("/v1/compliance/export", exportHandler)
-
-	var telemetry *TelemetryTracker
-
-	envMode := os.Getenv("ARBITER_ENV")
-	apiKey := os.Getenv("ALPACA_API_KEY_ID")
-	apiSecret := os.Getenv("ALPACA_API_SECRET_KEY")
-
-	if envMode == "PROD" {
-		fmt.Println("[HARDWARE MODE] Linking Gateway to secure AWS Nitro Enclave...")
-		ec, t := initEnclaveConnection(apiKey, apiSecret)
-		if ec != nil {
-			enclave = ec
-			telemetry = t
-		}
-	} else {
-		fmt.Println("[LOCAL DEV MODE] Linking Gateway to local Unix socket path...")
-		mc, err := NewMirrorClient(shadowSocketPath)
-		if err != nil {
-			log.Printf("[SHADOW] Rust daemon not available at %s — running without mirror: %v", shadowSocketPath, err)
-		} else {
-			mirror = mc
-			telemetry = mirror.StartConcurrentSignalListener(8, apiKey, apiSecret)
-			log.Printf("[SHADOW] Connected to Rust shadow engine at %s (8 worker pool)", shadowSocketPath)
-		}
-	}
-
-	http.HandleFunc("/portal", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "web/portal.html")
+	http.HandleFunc("/v1/risk/check", handleRiskCheck)
+	http.HandleFunc("/escalations", handleGetEscalations)
+	http.HandleFunc("/escalations/", handleResolveEscalation)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
 	})
 
-	http.HandleFunc("/v1/telemetry/health", func(w http.ResponseWriter, r *http.Request) {
-		if telemetry == nil {
-			http.Error(w, "Telemetry unavailable — shadow engine not connected", http.StatusServiceUnavailable)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]uint64{
-			"total_signals_read":   atomic.LoadUint64(&telemetry.TotalSignalsRead),
-			"successful_drops":     atomic.LoadUint64(&telemetry.SuccessfulDrops),
-			"processing_failures":  atomic.LoadUint64(&telemetry.ProcessingFailures),
-		})
-	})
-
-	fmt.Println("=========================================================")
-	fmt.Println("ARBITER LOCAL VPC NODE: RUNNING ON PORT 8080")
-	fmt.Println("=========================================================")
-
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	fmt.Println("Arbiter Risk Gateway listening on :8080...")
+	_ = http.ListenAndServe(":8080", nil)
 }
+
+var _ = context.Background
