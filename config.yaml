@@ -1,0 +1,38 @@
+version: "1.0"
+engine:
+  mode: "premium_shadow_replay"
+  ipc_transport: "grpc_unix_socket"
+  socket_path: "/var/run/arbiter/shadow.sock"
+  max_parallel_sandboxes: 64
+
+historical_pool:
+  datasource: "alpaca_historical_v2"
+  backfill_window_days: 30
+  tick_precision: "nanosecond"
+  cache_strategy: "in_memory_lru"
+  max_memory_allocation_gb: 32
+
+sandbox_isolation:
+  allow_external_networking: false
+  virtual_clock_speedup_factor: 1.0
+  drift_tolerance_ms: 2
+  state_fork_mode: "copy_on_write"
+
+telemetry_and_drifting:
+  divergence_metrics:
+    - metric: "slippage_delta"
+      threshold: 0.0015
+    - metric: "order_book_latency_skew"
+      threshold: 5
+
+  kill_switch_conditions:
+    max_shadow_drawdown_percent: 2.5
+    consecutive_hallucination_blocks: 3
+    unmapped_ticker_executions: true
+
+cryptographic_ledger:
+  append_only_logging: true
+  hashing_algorithm: "sha256"
+  merkle_tree_flush_interval_ms: 100
+  storage_backend: "local_nvme_direct"
+  export_format: "finra_compliant_json"

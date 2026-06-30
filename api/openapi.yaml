@@ -1,0 +1,118 @@
+openapi: "3.0.3"
+info:
+  title: Arbiter Core Risk Gateway API
+  version: "1.0.0"
+  description: High-performance trade risk evaluation gateway for AI-driven systematic trading agents.
+
+servers:
+  - url: http://localhost:8080
+    description: Local VPC development node
+
+paths:
+  /v1/risk/check:
+    post:
+      operationId: evaluateTradeRisk
+      summary: Evaluate a trade payload against the Arbiter risk matrix
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TradePayload"
+      responses:
+        "200":
+          description: Risk evaluation completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskVerdict"
+        "400":
+          description: Malformed payload
+        "405":
+          description: Method not allowed
+
+  /v1/compliance/export:
+    get:
+      operationId: exportComplianceLedger
+      summary: Download the cryptographic audit trail
+      security:
+        - arbiterAuth: []
+      responses:
+        "200":
+          description: Ledger file streamed as attachment
+        "401":
+          description: Unauthorized
+        "500":
+          description: Ledger unreadable
+
+  /v1/telemetry/health:
+    get:
+      operationId: getTelemetryHealth
+      summary: Real-time signal processing metrics
+      responses:
+        "200":
+          description: Current telemetry counters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelemetryHealth"
+        "503":
+          description: Shadow engine not connected
+
+components:
+  schemas:
+    TradePayload:
+      type: object
+      required: [agent_id, timestamp, asset_class, ticker, order_type, quantity, price, context_window_reasoning, crypto_checksum]
+      properties:
+        agent_id:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+        asset_class:
+          type: string
+        ticker:
+          type: string
+          maxLength: 8
+        order_type:
+          type: string
+          enum: [MARKET, LIMIT, STOP, STOP_LIMIT]
+        quantity:
+          type: number
+          format: double
+        price:
+          type: number
+          format: double
+        context_window_reasoning:
+          type: string
+        crypto_checksum:
+          type: string
+
+    RiskVerdict:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [ALLOW, KILL]
+        reason:
+          type: string
+        latency_ms:
+          type: integer
+          format: int64
+
+    TelemetryHealth:
+      type: object
+      properties:
+        total_signals_read:
+          type: integer
+        successful_drops:
+          type: integer
+        processing_failures:
+          type: integer
+
+  securitySchemes:
+    arbiterAuth:
+      type: apiKey
+      in: header
+      name: X-Arbiter-Auth

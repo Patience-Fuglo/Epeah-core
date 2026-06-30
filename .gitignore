@@ -1,0 +1,18 @@
+# Environment
+.env
+.DS_Store
+
+# Go
+*.exe
+*.test
+*.out
+
+# Rust
+shadow-engine/target/
+
+# Enclave artifacts
+enclave/*.eif
+
+# IDE
+.vscode/
+.idea/
