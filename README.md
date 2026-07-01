@@ -71,16 +71,16 @@ go test -bench=. -benchmem
 
 Measured results:
 
-| Benchmark | Result | Per request |
-|-----------|--------|-------------|
-| `BenchmarkEngineRiskEvaluation` | 25,189 ns/op | **~25 µs** |
-| `BenchmarkEngineRiskEvaluationParallel` | 32,762 ns/op | ~33 µs |
+| Benchmark | Observed range | Notes |
+|-----------|---------------|-------|
+| `BenchmarkEngineRiskEvaluation` | **~18–25 µs per rule-check** | Single-core handler, in-process |
+| `BenchmarkEngineRiskEvaluationParallel` | ~18–33 µs per rule-check | 4-goroutine parallel, in-process |
 
 **Hardware:** Intel Core i5-8210Y @ 1.60 GHz (a low-power 2018 ultrabook CPU).
 
-**What this measures:** the time for the Go rule-evaluation handler to process one trade payload **in-process** (via `httptest`). It is the rule-check time only — it does **not** include network transport or broker round-trip. On faster hardware (a modern laptop or a cloud instance) this number will be lower.
+**Run-to-run variance is expected.** These figures are measured across multiple `go test -bench=.` runs on a shared OS — background processes, CPU frequency scaling, and GC timing all shift the number between runs. A range is more honest than a single point figure; it shows the real operating envelope rather than a cherry-picked best result.
 
-At ~25 µs, the rule check is comfortably sub-millisecond. We quote it with the "in-process, rule-check only" qualifier deliberately: it is the honest scope of what was measured, and it is independently reproducible on your own machine.
+**What this measures:** the time for the Go rule-evaluation handler to process one trade payload **in-process** (via `httptest`). It is the rule-check time only — it does **not** include network transport or broker round-trip. On faster hardware (a modern laptop or a cloud instance) the numbers will be lower.
 
 ### Tamper-detection test
 
