@@ -1,0 +1,67 @@
+<svg width="900" height="480" viewBox="0 0 900 480" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#8C96B2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect width="900" height="480" fill="#0A0F1A"/>
+
+  <text x="450" y="36" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#F4F1EC">How one trade moves through Arbiter</text>
+
+  <!-- Agent action -->
+  <rect x="360" y="60" width="180" height="50" rx="8" fill="#151d33" stroke="#3B82F6" stroke-width="1"/>
+  <text x="450" y="80" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E8ECF6">Agent proposes a trade</text>
+  <text x="450" y="97" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="#8C96B2">e.g. BUY NIO $30,000</text>
+
+  <line x1="450" y1="110" x2="450" y2="140" stroke="#8C96B2" stroke-width="1" marker-end="url(#arrow2)"/>
+
+  <!-- Three sequential rule checks, stacked -->
+  <rect x="270" y="140" width="360" height="46" rx="8" fill="#151d33" stroke="#5B6480" stroke-width="0.5"/>
+  <text x="450" y="163" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#E8ECF6">1. Restricted instrument? (envelope-defined list)</text>
+
+  <line x1="450" y1="186" x2="450" y2="204" stroke="#8C96B2" stroke-width="1" marker-end="url(#arrow2)"/>
+
+  <rect x="270" y="204" width="360" height="46" rx="8" fill="#151d33" stroke="#5B6480" stroke-width="0.5"/>
+  <text x="450" y="227" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#E8ECF6">2. Within per-trade size limit?</text>
+
+  <line x1="450" y1="250" x2="450" y2="268" stroke="#8C96B2" stroke-width="1" marker-end="url(#arrow2)"/>
+
+  <rect x="230" y="268" width="440" height="52" rx="8" fill="#1a2340" stroke="#D9942E" stroke-width="1.5"/>
+  <text x="450" y="290" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E8ECF6">3. Portfolio concentration within limit?</text>
+  <text x="450" y="307" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="#D9942E">This is the one static permission checks can't see</text>
+
+  <line x1="450" y1="320" x2="450" y2="345" stroke="#8C96B2" stroke-width="1" marker-end="url(#arrow2)"/>
+
+  <!-- Outcome branches -->
+  <g>
+    <rect x="80" y="345" width="180" height="54" rx="8" fill="#0f2818" stroke="#3FA362" stroke-width="1"/>
+    <text x="170" y="367" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#3FA362">PASS</text>
+    <text x="170" y="384" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="#8C96B2">Clears automatically</text>
+  </g>
+
+  <g>
+    <rect x="360" y="345" width="180" height="54" rx="8" fill="#2e1512" stroke="#D65C5C" stroke-width="1"/>
+    <text x="450" y="367" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#D65C5C">BLOCK</text>
+    <text x="450" y="384" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="#8C96B2">Kill-switch, never executes</text>
+  </g>
+
+  <g>
+    <rect x="640" y="345" width="180" height="54" rx="8" fill="#2e2210" stroke="#D9942E" stroke-width="1"/>
+    <text x="730" y="367" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#D9942E">ESCALATE</text>
+    <text x="730" y="384" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="#8C96B2">Verified human decides</text>
+  </g>
+
+  <!-- Branch lines from decision point -->
+  <path d="M450 345 L170 345" fill="none" stroke="#3FA362" stroke-width="1" marker-end="url(#arrow2)"/>
+  <path d="M450 345 L730 345" fill="none" stroke="#D9942E" stroke-width="1" marker-end="url(#arrow2)"/>
+
+  <!-- All three converge to audit chain -->
+  <line x1="170" y1="399" x2="170" y2="420" stroke="#8C96B2" stroke-width="1"/>
+  <line x1="450" y1="399" x2="450" y2="420" stroke="#8C96B2" stroke-width="1"/>
+  <line x1="730" y1="399" x2="730" y2="420" stroke="#8C96B2" stroke-width="1"/>
+  <path d="M170 420 L730 420" fill="none" stroke="#8C96B2" stroke-width="1"/>
+  <line x1="450" y1="420" x2="450" y2="436" stroke="#8C96B2" stroke-width="1" marker-end="url(#arrow2)"/>
+
+  <rect x="290" y="436" width="320" height="34" rx="8" fill="#151d33" stroke="#9b87f5" stroke-width="1"/>
+  <text x="450" y="457" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E8ECF6">SHA-256 hash-linked audit chain</text>
+</svg>

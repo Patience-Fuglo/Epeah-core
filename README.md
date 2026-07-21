@@ -2,6 +2,8 @@
 
 An independent pre-trade risk engine and governance layer built specifically to manage non-deterministic execution risks originating from autonomous AI agents.
 
+![Arbiter architecture overview](docs/architecture-overview.svg)
+
 ---
 
 ## System Status & Built Realities
@@ -18,6 +20,8 @@ This repository operates under a mandate of strict engineering honesty. No fabri
 | **Alpaca Broker Kill-Switch** | Shipped (mock) | Code path calls `DELETE /v2/positions/{ticker}` — prints to console, ready for a live API key |
 | **Concentration Risk Check** | Shipped | Detects when a trade that is individually authorized (not banned, within size limits) would still push single-ticker or sector exposure past a concentration threshold — escalates to human review based on portfolio context that static per-trade rules cannot see |
 | **Autonomy Envelope** | Shipped | Per-agent artifact (`envelopes.json`) explicitly defining what each agent is authorized to do independently — restricted instruments, max order value, escalation band, concentration limits — versus what requires human judgment. Different agents can carry different authority without changing engine code |
+
+![Autonomy Envelope: same trade, different verdicts per agent](docs/autonomy-envelope.svg)
 
 ---
 
@@ -52,6 +56,8 @@ the Autonomy Envelope.
 ---
 
 ## Evaluation Pipeline
+
+![Arbiter decision flow](docs/decision-flow.svg)
 
 ```
 POST /v1/risk/check
