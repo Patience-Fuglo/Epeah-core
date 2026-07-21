@@ -17,37 +17,37 @@ This repository operates under a mandate of strict engineering honesty. No fabri
 | **Tamper-Evident Ledger** | Shipped | SHA-256 hash-linked chain anchoring all engine decisions and human resolutions — each block's hash includes the previous block's hash, so altering any past record breaks the chain |
 | **Alpaca Broker Kill-Switch** | Shipped (mock) | Code path calls `DELETE /v2/positions/{ticker}` — prints to console, ready for a live API key |
 | **Concentration Risk Check** | Shipped | Detects when a trade that is individually authorized (not banned, within size limits) would still push single-ticker or sector exposure past a concentration threshold — escalates to human review based on portfolio context that static per-trade rules cannot see |
+| **Autonomy Envelope** | Shipped | Per-agent artifact (`envelopes.json`) explicitly defining what each agent is authorized to do independently — restricted instruments, max order value, escalation band, concentration limits — versus what requires human judgment. Different agents can carry different authority without changing engine code |
 
 ---
 
 ## Roadmap: Formal Consequence-Detection Architecture
 
-The Concentration Risk Check above is a first, working instance of a broader
-architectural direction: separating **authorization** (can this agent act at
-all) from **consequence detection** (should this specific action happen,
-given real-time context). The full target architecture is:
+The Concentration Risk Check and Autonomy Envelope above are the first,
+working instances of a broader architectural direction: separating
+**authorization** (can this agent act at all) from **consequence
+detection** (should this specific action happen, given real-time context).
+The full target architecture is:
 
 ```
 Identity → Authorization → Arbiter Decision Control → Execution → Evidence
 ```
 
 Planned components inside Arbiter Decision Control (not yet built as
-separate systems — the Concentration Risk Check is currently the only
-implemented instance of this pattern):
+separate systems — the Concentration Risk Check and Autonomy Envelope are
+currently the only implemented instances of this pattern):
 
 - **Consequence Engine** — detects when an authorized action produces
   unacceptable downstream effects (concentration risk is the first example)
 - **Domain Risk Engine** — domain-specific risk models beyond trading
-- **Autonomy Envelope** — an explicit, per-agent specification of what it
-  can do independently (instruments, max exposure, concentration limits,
-  volatility conditions, drawdown limits) versus what requires human judgment
 - **Context Engine** — real-time market/regime context feeding the
   Consequence Engine
 - **Escalation Engine** — the routing and resolution logic (already
   partially built as the Human-In-The-Loop Layer above)
 
 This roadmap section is intentionally aspirational and labeled as such —
-nothing here is claimed as shipped except the Concentration Risk Check.
+nothing here is claimed as shipped except the Concentration Risk Check and
+the Autonomy Envelope.
 
 ---
 

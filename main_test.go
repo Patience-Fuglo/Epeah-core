@@ -85,8 +85,61 @@ func verifyChainIntegrityLocal() error {
 }
 
 // ==========================================
-// 3. BENCHMARK #2 — "AUTHORIZED, BUT UNSAFE"
+// 4. AUTONOMY ENVELOPE — PER-AGENT DIFFERENTIATION
 // ==========================================
+//
+// Proves the Autonomy Envelope is a real, functioning per-agent artifact —
+// not just the old global constants renamed. The identical $30,000 NIO
+// trade produces two different verdicts depending on which agent's
+// envelope is in force, because different agents carry different
+// authorized limits.
+
+func TestAutonomyEnvelope_PerAgentDifferentiation(t *testing.T) {
+	stateMutex.Lock()
+	Portfolio = map[string]float64{} // isolate from other tests' portfolio state
+	stateMutex.Unlock()
+
+	envelopeRegistry["conservative_desk_agent"] = AutonomyEnvelope{
+		AgentID:                 "conservative_desk_agent",
+		RestrictedInstruments:   []string{"GHOST", "TEST", "SDN"},
+		MaxOrderValue:           10000.0,
+		SoftEscalationFraction:  0.7,
+		MaxSingleTickerExposure: 25000.0,
+		MaxSectorExposure:       30000.0,
+	}
+	envelopeRegistry["systematic_ev_desk_agent"] = AutonomyEnvelope{
+		AgentID:                 "systematic_ev_desk_agent",
+		RestrictedInstruments:   []string{"GHOST", "TEST"},
+		MaxOrderValue:           100000.0,
+		SoftEscalationFraction:  0.8,
+		MaxSingleTickerExposure: 75000.0,
+		MaxSectorExposure:       80000.0,
+	}
+
+	fmt.Println("[ENVELOPE TEST] Same $30,000 NIO trade, two agents, two different Autonomy Envelopes:")
+
+	conservativeDecision := evaluatePayload(TradePayload{
+		AgentID: "conservative_desk_agent", Ticker: "NIO", TotalValue: 30000.0,
+	})
+	fmt.Printf("[ENVELOPE TEST] conservative_desk_agent (max order $10,000) -> %s\n", conservativeDecision.Outcome)
+	if conservativeDecision.Outcome != "BLOCK" {
+		t.Fatalf("expected conservative agent's $30,000 trade to BLOCK against its $10,000 cap, got: %s", conservativeDecision.Outcome)
+	}
+
+	stateMutex.Lock()
+	Portfolio = map[string]float64{}
+	stateMutex.Unlock()
+
+	aggressiveDecision := evaluatePayload(TradePayload{
+		AgentID: "systematic_ev_desk_agent", Ticker: "NIO", TotalValue: 30000.0,
+	})
+	fmt.Printf("[ENVELOPE TEST] systematic_ev_desk_agent (max order $100,000) -> %s\n", aggressiveDecision.Outcome)
+	if aggressiveDecision.Outcome != "PASS" {
+		t.Fatalf("expected systematic agent's $30,000 trade to PASS against its $100,000 cap with empty portfolio, got: %s", aggressiveDecision.Outcome)
+	}
+
+	fmt.Println("[ENVELOPE TEST SUCCESS] Identical trade, identical engine code, different verdicts — driven entirely by each agent's Autonomy Envelope.")
+}
 //
 // This is the core differentiation proof: a trade that is individually
 // fully authorized (not a banned asset, well within the single-trade size

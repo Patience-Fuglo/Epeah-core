@@ -1,0 +1,18 @@
+[
+  {
+    "agent_id": "conservative_desk_agent",
+    "restricted_instruments": ["GHOST", "TEST", "SDN"],
+    "max_order_value": 10000.0,
+    "soft_escalation_fraction": 0.7,
+    "max_single_ticker_exposure": 25000.0,
+    "max_sector_exposure": 30000.0
+  },
+  {
+    "agent_id": "systematic_ev_desk_agent",
+    "restricted_instruments": ["GHOST", "TEST"],
+    "max_order_value": 100000.0,
+    "soft_escalation_fraction": 0.8,
+    "max_single_ticker_exposure": 75000.0,
+    "max_sector_exposure": 80000.0
+  }
+]

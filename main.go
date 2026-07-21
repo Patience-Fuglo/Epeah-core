@@ -66,10 +66,6 @@ var (
 	LastChainHash      = "0000000000000000000000000000000000000000000000000000000000000000"
 )
 
-const MaxPositionValue = 50000.0
-
-var BannedAssets = map[string]bool{"GHOST": true, "TEST": true}
-
 // Portfolio holds current $ exposure per ticker for already-executed positions.
 // Seeded here for demonstration; in production this would be read from the
 // fund's live position feed rather than tracked in-process.
@@ -87,14 +83,13 @@ var SectorMap = map[string]string{
 	"LCID": "EV",
 }
 
-const SingleTickerConcentrationLimit = 75000.0
-const SectorConcentrationLimit = 80000.0
-
 // ==========================================
 // GRADUATED DECISION MATRIX
 // ==========================================
 
 func evaluatePayload(payload TradePayload) *EngineDecision {
+	env := envelopeFor(payload.AgentID)
+
 	decision := &EngineDecision{
 		ID:              fmt.Sprintf("tx_%d", time.Now().UnixNano()),
 		Payload:         payload,
@@ -104,13 +99,15 @@ func evaluatePayload(payload TradePayload) *EngineDecision {
 		Timestamp:       time.Now().UnixNano(),
 	}
 
-	// Rule 1: Banned Registry
+	// Rule 1: Banned Registry — sourced from this agent's Autonomy Envelope,
+	// not a global constant, so different agents can carry different
+	// restricted-instrument lists.
 	bannedRule := RuleResult{
 		RuleName: "BannedAssetCheck",
 		Severity: "OK",
 		Reason:   "Asset is cleared for transaction tracking.",
 	}
-	if BannedAssets[strings.ToUpper(payload.Ticker)] {
+	if isRestrictedUnder(env, payload.Ticker) {
 		bannedRule.Triggered = true
 		bannedRule.Severity = "HARD"
 		bannedRule.Reason = fmt.Sprintf("Asset %s is explicitly restricted from autonomous deployment.", payload.Ticker)
@@ -118,7 +115,8 @@ func evaluatePayload(payload TradePayload) *EngineDecision {
 	}
 	decision.RuleDetails = append(decision.RuleDetails, bannedRule)
 
-	// Rule 2: Position Allocation Sizing
+	// Rule 2: Position Allocation Sizing — thresholds come from the
+	// agent's envelope (MaxOrderValue, SoftEscalationFraction).
 	calculatedValue := payload.Quantity * payload.Price
 	if payload.TotalValue > 0 {
 		calculatedValue = payload.TotalValue
@@ -129,30 +127,33 @@ func evaluatePayload(payload TradePayload) *EngineDecision {
 		Severity: "OK",
 		Reason:   "Position parameters fall within standard allocations.",
 	}
-	if calculatedValue > MaxPositionValue {
+	softThreshold := env.MaxOrderValue * env.SoftEscalationFraction
+	if calculatedValue > env.MaxOrderValue {
 		sizeRule.Triggered = true
 		sizeRule.Severity = "HARD"
 		sizeRule.Reason = fmt.Sprintf(
 			"Trade value of $%.2f exceeds the $%.2f hard boundary cap.",
-			calculatedValue, MaxPositionValue,
+			calculatedValue, env.MaxOrderValue,
 		)
 		decision.ConfidenceScore -= 40
-	} else if calculatedValue > MaxPositionValue*0.8 {
+	} else if calculatedValue > softThreshold {
 		sizeRule.Triggered = true
 		sizeRule.Severity = "SOFT"
 		sizeRule.Reason = fmt.Sprintf(
 			"Trade value of $%.2f enters the borderline risk escalation band (> $%.2f).",
-			calculatedValue, MaxPositionValue*0.8,
+			calculatedValue, softThreshold,
 		)
 		decision.ConfidenceScore -= 15
 	}
 	decision.RuleDetails = append(decision.RuleDetails, sizeRule)
 
-	// Rule 3: Concentration Risk — this is the rule that can escalate a trade
-	// EVEN WHEN it passes every check above. A trade can be a normal size on
-	// an unrestricted ticker (fully "authorized" by rules 1 and 2) and still
-	// push the fund into dangerous concentration once portfolio context is
-	// considered. Static permission checks can't see this; Arbiter can.
+	// Rule 3: Concentration Risk — thresholds come from the agent's
+	// envelope (MaxSingleTickerExposure, MaxSectorExposure). This is the
+	// rule that can escalate a trade EVEN WHEN it passes every check
+	// above. A trade can be a normal size on an unrestricted ticker
+	// (fully "authorized" by rules 1 and 2) and still push the fund into
+	// dangerous concentration once portfolio context is considered.
+	// Static permission checks can't see this; Arbiter can.
 	stateMutex.Lock()
 	existingTickerExposure := Portfolio[strings.ToUpper(payload.Ticker)]
 	sector, hasSector := SectorMap[strings.ToUpper(payload.Ticker)]
@@ -174,20 +175,20 @@ func evaluatePayload(payload TradePayload) *EngineDecision {
 		Severity: "OK",
 		Reason:   "Portfolio concentration remains within acceptable bounds.",
 	}
-	if projectedTickerExposure > SingleTickerConcentrationLimit {
+	if projectedTickerExposure > env.MaxSingleTickerExposure {
 		concentrationRule.Triggered = true
 		concentrationRule.Severity = "SOFT"
 		concentrationRule.Reason = fmt.Sprintf(
 			"This trade would bring %s exposure to $%.2f, above the $%.2f single-position concentration limit.",
-			strings.ToUpper(payload.Ticker), projectedTickerExposure, SingleTickerConcentrationLimit,
+			strings.ToUpper(payload.Ticker), projectedTickerExposure, env.MaxSingleTickerExposure,
 		)
 		decision.ConfidenceScore -= 20
-	} else if hasSector && projectedSectorExposure > SectorConcentrationLimit {
+	} else if hasSector && projectedSectorExposure > env.MaxSectorExposure {
 		concentrationRule.Triggered = true
 		concentrationRule.Severity = "SOFT"
 		concentrationRule.Reason = fmt.Sprintf(
 			"This trade is authorized on its own, but combined %s-sector exposure would reach $%.2f, above the $%.2f sector concentration limit — a human should weigh whether this correlated risk is acceptable.",
-			sector, projectedSectorExposure, SectorConcentrationLimit,
+			sector, projectedSectorExposure, env.MaxSectorExposure,
 		)
 		decision.ConfidenceScore -= 20
 	}
@@ -351,6 +352,8 @@ func executeEmergencyFlatten(ticker, reason string) {
 }
 
 func main() {
+	LoadEnvelopes("envelopes.json")
+
 	envMode := os.Getenv("ARBITER_ENV")
 	if envMode == "PROD" {
 		fmt.Println("[ROADMAP NOTICE] AWS Nitro hardware enclaves / eBPF kernel hooks are flagged under the engineering roadmap — not active in this build.")
