@@ -83,3 +83,60 @@ func verifyChainIntegrityLocal() error {
 	}
 	return nil
 }
+
+// ==========================================
+// 3. BENCHMARK #2 — "AUTHORIZED, BUT UNSAFE"
+// ==========================================
+//
+// This is the core differentiation proof: a trade that is individually
+// fully authorized (not a banned asset, well within the single-trade size
+// limit) is still escalated to a human, because Arbiter's concentration
+// check sees portfolio-level context that a static permission check cannot.
+
+func TestAuthorizedButUnsafe_ConcentrationEscalation(t *testing.T) {
+	stateMutex.Lock()
+	Portfolio = map[string]float64{
+		"TSLA": 32000.0,
+		"RIVN": 28000.0,
+	}
+	stateMutex.Unlock()
+
+	fmt.Println("[BENCHMARK] Existing portfolio: TSLA $32,000 + RIVN $28,000 (EV sector) = $60,000 sector exposure")
+	fmt.Println("[BENCHMARK] Proposing: BUY NIO, $30,000 — individually well within all static limits")
+
+	decision := evaluatePayload(TradePayload{
+		AgentID:    "hft_agent_ev_desk",
+		Ticker:     "NIO",
+		TotalValue: 30000.0,
+	})
+
+	var bannedResult, sizeResult, concentrationResult *RuleResult
+	for i := range decision.RuleDetails {
+		switch decision.RuleDetails[i].RuleName {
+		case "BannedAssetCheck":
+			bannedResult = &decision.RuleDetails[i]
+		case "GraduatedSizeCheck":
+			sizeResult = &decision.RuleDetails[i]
+		case "ConcentrationRiskCheck":
+			concentrationResult = &decision.RuleDetails[i]
+		}
+	}
+
+	if bannedResult == nil || bannedResult.Severity != "OK" {
+		t.Fatalf("expected NIO to be fully authorized on BannedAssetCheck, got: %+v", bannedResult)
+	}
+	if sizeResult == nil || sizeResult.Severity != "OK" {
+		t.Fatalf("expected $30,000 to be fully authorized on GraduatedSizeCheck, got: %+v", sizeResult)
+	}
+	fmt.Println("[BENCHMARK] Confirmed: trade is fully AUTHORIZED under both static rules (banned-asset + size).")
+
+	if concentrationResult == nil || concentrationResult.Severity != "SOFT" {
+		t.Fatalf("expected ConcentrationRiskCheck to trigger SOFT on sector exposure, got: %+v", concentrationResult)
+	}
+	if decision.Outcome != "ESCALATE" {
+		t.Fatalf("expected overall outcome ESCALATE despite passing static rules, got: %s", decision.Outcome)
+	}
+
+	fmt.Printf("[BENCHMARK] Arbiter result: %s — %s\n", decision.Outcome, concentrationResult.Reason)
+	fmt.Println("[BENCHMARK SUCCESS] A fully authorized trade was still escalated for human review, based on context static permissions cannot see.")
+}

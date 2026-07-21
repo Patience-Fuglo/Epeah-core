@@ -16,3 +16,4 @@ enclave/*.eif
 # IDE
 .vscode/
 .idea/
+arbiter-core

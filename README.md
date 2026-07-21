@@ -16,6 +16,38 @@ This repository operates under a mandate of strict engineering honesty. No fabri
 | **Human-In-The-Loop Layer** | Shipped | Dashboard holds borderline trades pending manual review — logs reviewer identity, credentials (e.g., CQF), written reason, and nanosecond timestamp |
 | **Tamper-Evident Ledger** | Shipped | SHA-256 hash-linked chain anchoring all engine decisions and human resolutions — each block's hash includes the previous block's hash, so altering any past record breaks the chain |
 | **Alpaca Broker Kill-Switch** | Shipped (mock) | Code path calls `DELETE /v2/positions/{ticker}` — prints to console, ready for a live API key |
+| **Concentration Risk Check** | Shipped | Detects when a trade that is individually authorized (not banned, within size limits) would still push single-ticker or sector exposure past a concentration threshold — escalates to human review based on portfolio context that static per-trade rules cannot see |
+
+---
+
+## Roadmap: Formal Consequence-Detection Architecture
+
+The Concentration Risk Check above is a first, working instance of a broader
+architectural direction: separating **authorization** (can this agent act at
+all) from **consequence detection** (should this specific action happen,
+given real-time context). The full target architecture is:
+
+```
+Identity → Authorization → Arbiter Decision Control → Execution → Evidence
+```
+
+Planned components inside Arbiter Decision Control (not yet built as
+separate systems — the Concentration Risk Check is currently the only
+implemented instance of this pattern):
+
+- **Consequence Engine** — detects when an authorized action produces
+  unacceptable downstream effects (concentration risk is the first example)
+- **Domain Risk Engine** — domain-specific risk models beyond trading
+- **Autonomy Envelope** — an explicit, per-agent specification of what it
+  can do independently (instruments, max exposure, concentration limits,
+  volatility conditions, drawdown limits) versus what requires human judgment
+- **Context Engine** — real-time market/regime context feeding the
+  Consequence Engine
+- **Escalation Engine** — the routing and resolution logic (already
+  partially built as the Human-In-The-Loop Layer above)
+
+This roadmap section is intentionally aspirational and labeled as such —
+nothing here is claimed as shipped except the Concentration Risk Check.
 
 ---
 
@@ -24,18 +56,23 @@ This repository operates under a mandate of strict engineering honesty. No fabri
 ```
 POST /v1/risk/check
         ↓
-┌──────────────────────────────────────────┐
-│  Rule 1: BannedAssetCheck                │
-│    GHOST, TEST → HARD breach             │
-│                                          │
-│  Rule 2: GraduatedSizeCheck              │
-│    TotalValue > $50,000  → HARD breach   │
-│    TotalValue > $40,000  → SOFT breach   │
-│    TotalValue ≤ $40,000  → OK            │
-└──────────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│  Rule 1: BannedAssetCheck                        │
+│    GHOST, TEST → HARD breach                     │
+│                                                  │
+│  Rule 2: GraduatedSizeCheck                      │
+│    TotalValue > $50,000  → HARD breach           │
+│    TotalValue > $40,000  → SOFT breach           │
+│    TotalValue ≤ $40,000  → OK                    │
+│                                                  │
+│  Rule 3: ConcentrationRiskCheck                  │
+│    Single-ticker exposure > $75,000 → SOFT       │
+│    Sector exposure > $80,000        → SOFT       │
+│    (can trigger even when Rules 1 & 2 are OK)    │
+└──────────────────────────────────────────────────┘
         ↓
   HARD breach   → BLOCK   (confidence −40 to −50)
-  SOFT breach   → ESCALATE (confidence −15, enters review queue)
+  SOFT breach   → ESCALATE (confidence −15 to −20, enters review queue)
   No breach     → PASS    (confidence 100)
         ↓
   SHA-256 hash computed and chained to previous block

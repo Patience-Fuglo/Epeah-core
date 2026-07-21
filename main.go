@@ -70,6 +70,26 @@ const MaxPositionValue = 50000.0
 
 var BannedAssets = map[string]bool{"GHOST": true, "TEST": true}
 
+// Portfolio holds current $ exposure per ticker for already-executed positions.
+// Seeded here for demonstration; in production this would be read from the
+// fund's live position feed rather than tracked in-process.
+var Portfolio = map[string]float64{
+	"TSLA": 32000.0,
+	"RIVN": 28000.0,
+}
+
+// SectorMap groups tickers so concentration can be detected across
+// correlated names, not just within a single ticker.
+var SectorMap = map[string]string{
+	"TSLA": "EV",
+	"RIVN": "EV",
+	"NIO":  "EV",
+	"LCID": "EV",
+}
+
+const SingleTickerConcentrationLimit = 75000.0
+const SectorConcentrationLimit = 80000.0
+
 // ==========================================
 // GRADUATED DECISION MATRIX
 // ==========================================
@@ -128,6 +148,51 @@ func evaluatePayload(payload TradePayload) *EngineDecision {
 	}
 	decision.RuleDetails = append(decision.RuleDetails, sizeRule)
 
+	// Rule 3: Concentration Risk — this is the rule that can escalate a trade
+	// EVEN WHEN it passes every check above. A trade can be a normal size on
+	// an unrestricted ticker (fully "authorized" by rules 1 and 2) and still
+	// push the fund into dangerous concentration once portfolio context is
+	// considered. Static permission checks can't see this; Arbiter can.
+	stateMutex.Lock()
+	existingTickerExposure := Portfolio[strings.ToUpper(payload.Ticker)]
+	sector, hasSector := SectorMap[strings.ToUpper(payload.Ticker)]
+	sectorExposure := 0.0
+	if hasSector {
+		for ticker, value := range Portfolio {
+			if SectorMap[ticker] == sector {
+				sectorExposure += value
+			}
+		}
+	}
+	stateMutex.Unlock()
+
+	projectedTickerExposure := existingTickerExposure + calculatedValue
+	projectedSectorExposure := sectorExposure + calculatedValue
+
+	concentrationRule := RuleResult{
+		RuleName: "ConcentrationRiskCheck",
+		Severity: "OK",
+		Reason:   "Portfolio concentration remains within acceptable bounds.",
+	}
+	if projectedTickerExposure > SingleTickerConcentrationLimit {
+		concentrationRule.Triggered = true
+		concentrationRule.Severity = "SOFT"
+		concentrationRule.Reason = fmt.Sprintf(
+			"This trade would bring %s exposure to $%.2f, above the $%.2f single-position concentration limit.",
+			strings.ToUpper(payload.Ticker), projectedTickerExposure, SingleTickerConcentrationLimit,
+		)
+		decision.ConfidenceScore -= 20
+	} else if hasSector && projectedSectorExposure > SectorConcentrationLimit {
+		concentrationRule.Triggered = true
+		concentrationRule.Severity = "SOFT"
+		concentrationRule.Reason = fmt.Sprintf(
+			"This trade is authorized on its own, but combined %s-sector exposure would reach $%.2f, above the $%.2f sector concentration limit — a human should weigh whether this correlated risk is acceptable.",
+			sector, projectedSectorExposure, SectorConcentrationLimit,
+		)
+		decision.ConfidenceScore -= 20
+	}
+	decision.RuleDetails = append(decision.RuleDetails, concentrationRule)
+
 	hasHardBreach := false
 	hasSoftBreach := false
 	for _, r := range decision.RuleDetails {
@@ -157,6 +222,12 @@ func evaluatePayload(payload TradePayload) *EngineDecision {
 	DecisionRegistry[decision.ID] = decision
 	if decision.Outcome == "ESCALATE" {
 		EscalationQueue = append(EscalationQueue, decision)
+	}
+	if decision.Outcome == "PASS" {
+		// Auto-cleared trades execute immediately, so portfolio exposure
+		// updates right away — this is what the NEXT trade's concentration
+		// check will see.
+		Portfolio[strings.ToUpper(payload.Ticker)] += calculatedValue
 	}
 	stateMutex.Unlock()
 
@@ -263,6 +334,12 @@ func handleResolveEscalation(w http.ResponseWriter, r *http.Request) {
 
 	if p.Action == "REJECT" {
 		executeEmergencyFlatten(targetDecision.Payload.Ticker, "Human review denial tracking event.")
+	} else if p.Action == "ALLOW" {
+		calculatedValue := targetDecision.Payload.TotalValue
+		if calculatedValue == 0 {
+			calculatedValue = targetDecision.Payload.Quantity * targetDecision.Payload.Price
+		}
+		Portfolio[strings.ToUpper(targetDecision.Payload.Ticker)] += calculatedValue
 	}
 
 	w.Header().Set("Content-Type", "application/json")
