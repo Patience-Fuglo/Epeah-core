@@ -56,6 +56,8 @@ specific, dated, external developments as of mid-2026:
   as considerations firms should address — the same considerations
   Epeah's architecture is built around.
 
+![Trading is the proof case, not the ceiling — the built mechanism today versus the unbuilt, muted direction beyond trading](docs/why-beyond-trading.svg)
+
 **What this means concretely, and what it doesn't:** the mechanism
 generalizes; nothing beyond trading is built or tested yet. Any claim
 about Epeah operating outside trading today would be inaccurate. The
