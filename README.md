@@ -2,6 +2,8 @@
 
 An independent pre-trade risk engine and governance layer built specifically to manage non-deterministic execution risks originating from autonomous AI agents.
 
+**Today, Epeah is built and proven for one thing: autonomous trading agents.** The long-term goal is broader — an independent, verifiable trust layer for consequential decisions made by autonomous AI systems anywhere the stakes are high enough to need one. Trading is the proof case, not the ceiling. See "Why Beyond Trading" below for the evidence behind that direction.
+
 ![Epeah architecture overview](docs/architecture-overview.svg)
 
 ---
@@ -22,6 +24,44 @@ This repository operates under a mandate of strict engineering honesty. No fabri
 | **Autonomy Envelope** | Shipped | Per-agent artifact (`envelopes.json`) explicitly defining what each agent is authorized to do independently — restricted instruments, max order value, escalation band, concentration limits — versus what requires human judgment. Different agents can carry different authority without changing engine code |
 
 ![Autonomy Envelope: same trade, different verdicts per agent](docs/autonomy-envelope.svg)
+
+---
+
+## Why Beyond Trading
+
+Epeah's core mechanism — evaluate an action before it executes, clear it,
+block it, or route it to a verified human, with a tamper-evident record
+of every step — is not inherently trading-specific. Trading is where it's
+built and tested first, because trading decisions are fast, measurable,
+and financially consequential, making it the clearest environment to
+prove the mechanism works.
+
+The direction beyond trading is not speculation. It's grounded in
+specific, dated, external developments as of mid-2026:
+
+- **MAS "SAFR" (Safeguards for Agentic Finance at Runtime), published
+  July 3, 2026** by the Monetary Authority of Singapore, co-developed
+  with J.P. Morgan Chase, HSBC, Mastercard, Visa, Circle, and Manulife.
+  SAFR describes an industry reference architecture — agent identity,
+  a controls repository, a disposition engine (approve/deny/escalate/
+  monitor), and a tamper-evident audit log — that maps closely onto
+  Epeah's existing Autonomy Envelope, PASS/BLOCK/ESCALATE logic, and
+  audit chain. SAFR is explicitly not binding regulatory guidance; it's
+  evidence that this architecture pattern is being named and discussed
+  by major institutions, not evidence that Epeah is the implementation
+  they'll choose.
+- **FINRA's 2026 Annual Regulatory Oversight Report** dedicates a
+  section to autonomous AI agents specifically, naming human-in-the-loop
+  oversight, tracking of agent actions, and guardrails on agent behavior
+  as considerations firms should address — the same considerations
+  Epeah's architecture is built around.
+
+**What this means concretely, and what it doesn't:** the mechanism
+generalizes; nothing beyond trading is built or tested yet. Any claim
+about Epeah operating outside trading today would be inaccurate. The
+honest position is that the architecture doesn't have to change to serve
+a broader set of consequential-action use cases — but building and
+proving that is future work, not current capability.
 
 ---
 
