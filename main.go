@@ -153,7 +153,7 @@ func evaluatePayload(payload TradePayload) *EngineDecision {
 	// above. A trade can be a normal size on an unrestricted ticker
 	// (fully "authorized" by rules 1 and 2) and still push the fund into
 	// dangerous concentration once portfolio context is considered.
-	// Static permission checks can't see this; Arbiter can.
+	// Static permission checks can't see this; Epeah can.
 	stateMutex.Lock()
 	existingTickerExposure := Portfolio[strings.ToUpper(payload.Ticker)]
 	sector, hasSector := SectorMap[strings.ToUpper(payload.Ticker)]
@@ -354,7 +354,7 @@ func executeEmergencyFlatten(ticker, reason string) {
 func main() {
 	LoadEnvelopes("envelopes.json")
 
-	envMode := os.Getenv("ARBITER_ENV")
+	envMode := os.Getenv("EPEAH_ENV")
 	if envMode == "PROD" {
 		fmt.Println("[ROADMAP NOTICE] AWS Nitro hardware enclaves / eBPF kernel hooks are flagged under the engineering roadmap — not active in this build.")
 	}
@@ -366,6 +366,6 @@ func main() {
 		http.ServeFile(w, r, "index.html")
 	})
 
-	fmt.Println("Arbiter Core Production Node active on port :8080...")
+	fmt.Println("Epeah Core Production Node active on port :8080...")
 	_ = http.ListenAndServe(":8080", nil)
 }

@@ -6,7 +6,7 @@
   </defs>
   <rect width="900" height="480" fill="#0A0F1A"/>
 
-  <text x="450" y="36" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#F4F1EC">How one trade moves through Arbiter</text>
+  <text x="450" y="36" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#F4F1EC">How one trade moves through Epeah</text>
 
   <!-- Agent action -->
   <rect x="360" y="60" width="180" height="50" rx="8" fill="#151d33" stroke="#3B82F6" stroke-width="1"/>

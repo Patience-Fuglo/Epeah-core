@@ -143,7 +143,7 @@ func TestAutonomyEnvelope_PerAgentDifferentiation(t *testing.T) {
 //
 // This is the core differentiation proof: a trade that is individually
 // fully authorized (not a banned asset, well within the single-trade size
-// limit) is still escalated to a human, because Arbiter's concentration
+// limit) is still escalated to a human, because Epeah's concentration
 // check sees portfolio-level context that a static permission check cannot.
 
 func TestAuthorizedButUnsafe_ConcentrationEscalation(t *testing.T) {
@@ -190,6 +190,6 @@ func TestAuthorizedButUnsafe_ConcentrationEscalation(t *testing.T) {
 		t.Fatalf("expected overall outcome ESCALATE despite passing static rules, got: %s", decision.Outcome)
 	}
 
-	fmt.Printf("[BENCHMARK] Arbiter result: %s — %s\n", decision.Outcome, concentrationResult.Reason)
+	fmt.Printf("[BENCHMARK] Epeah result: %s — %s\n", decision.Outcome, concentrationResult.Reason)
 	fmt.Println("[BENCHMARK SUCCESS] A fully authorized trade was still escalated for human review, based on context static permissions cannot see.")
 }

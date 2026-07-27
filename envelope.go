@@ -15,7 +15,7 @@ import (
 // ends and human judgment begins. It is the concrete artifact behind the
 // architectural separation:
 //
-//   Identity -> Authorization -> Arbiter Decision Control -> Execution -> Evidence
+//   Identity -> Authorization -> Epeah Decision Control -> Execution -> Evidence
 //
 // A static authorization layer (e.g. an agent identity/permission system)
 // answers "can this agent trade at all." The Autonomy Envelope goes one
@@ -44,13 +44,13 @@ type AutonomyEnvelope struct {
 
 	// MaxSingleTickerExposure and MaxSectorExposure define concentration
 	// limits — the portfolio-level context a static per-trade permission
-	// check cannot see, but Arbiter's Consequence Engine does.
+	// check cannot see, but Epeah's Consequence Engine does.
 	MaxSingleTickerExposure float64 `json:"max_single_ticker_exposure"`
 	MaxSectorExposure       float64 `json:"max_sector_exposure"`
 }
 
 // DefaultEnvelope applies to any agent with no specific envelope on file.
-// These values match Arbiter's original hardcoded constants, so existing
+// These values match Epeah's original hardcoded constants, so existing
 // behavior is unchanged for any agent not explicitly configured otherwise.
 var DefaultEnvelope = AutonomyEnvelope{
 	AgentID:                 "default",

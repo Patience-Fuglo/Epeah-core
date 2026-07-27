@@ -17,3 +17,4 @@ enclave/*.eif
 .vscode/
 .idea/
 arbiter-core
+epeah-core

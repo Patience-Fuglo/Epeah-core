@@ -1,8 +1,8 @@
-# Arbiter Core
+# Epeah Core
 
 An independent pre-trade risk engine and governance layer built specifically to manage non-deterministic execution risks originating from autonomous AI agents.
 
-![Arbiter architecture overview](docs/architecture-overview.svg)
+![Epeah architecture overview](docs/architecture-overview.svg)
 
 ---
 
@@ -34,10 +34,10 @@ detection** (should this specific action happen, given real-time context).
 The full target architecture is:
 
 ```
-Identity → Authorization → Arbiter Decision Control → Execution → Evidence
+Identity → Authorization → Epeah Decision Control → Execution → Evidence
 ```
 
-Planned components inside Arbiter Decision Control (not yet built as
+Planned components inside Epeah Decision Control (not yet built as
 separate systems — the Concentration Risk Check and Autonomy Envelope are
 currently the only implemented instances of this pattern):
 
@@ -57,7 +57,7 @@ the Autonomy Envelope.
 
 ## Evaluation Pipeline
 
-![Arbiter decision flow](docs/decision-flow.svg)
+![Epeah decision flow](docs/decision-flow.svg)
 
 ```
 POST /v1/risk/check
@@ -91,8 +91,8 @@ POST /v1/risk/check
 ## Quick Start
 
 ```bash
-git clone https://github.com/Patience-Fuglo/arbiter-core.git
-cd arbiter-core
+git clone https://github.com/Patience-Fuglo/epeah-core.git
+cd epeah-core
 go run main.go
 ```
 
@@ -195,7 +195,7 @@ Returns all trades currently awaiting human review.
 ## File Structure
 
 ```
-arbiter-core/
+epeah-core/
 ├── main.go        # Rule engine, HTTP handlers, cryptographic ledger, broker stub
 ├── main_test.go   # Benchmarks + tamper-detection validation test
 ├── index.html     # Governance console (served at /)

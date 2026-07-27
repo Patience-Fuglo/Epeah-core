@@ -6,7 +6,7 @@
   </defs>
   <rect width="900" height="420" fill="#0A0F1A"/>
 
-  <text x="450" y="36" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#F4F1EC">Arbiter architecture: from agent identity to auditable evidence</text>
+  <text x="450" y="36" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#F4F1EC">Epeah architecture: from agent identity to auditable evidence</text>
 
   <!-- Row 1: pipeline stages -->
   <g>
@@ -27,7 +27,7 @@
 
   <g>
     <rect x="382" y="60" width="220" height="76" rx="8" fill="#1a2340" stroke="#3B82F6" stroke-width="1.5"/>
-    <text x="492" y="84" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#F4F1EC">Arbiter Decision Control</text>
+    <text x="492" y="84" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#F4F1EC">Epeah Decision Control</text>
     <text x="492" y="102" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#8C96B2">Should this specific</text>
     <text x="492" y="117" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#8C96B2">action happen right now</text>
   </g>
@@ -53,7 +53,7 @@
 
   <!-- Expanded Decision Control detail box -->
   <rect x="130" y="180" width="720" height="200" rx="12" fill="none" stroke="#3B82F6" stroke-width="1" stroke-dasharray="4 4"/>
-  <text x="150" y="205" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#3B82F6">Inside Arbiter Decision Control</text>
+  <text x="150" y="205" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#3B82F6">Inside Epeah Decision Control</text>
 
   <!-- Three rule checks -->
   <g>
